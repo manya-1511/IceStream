@@ -1,0 +1,245 @@
+name: icestream
+
+networks:
+  icestream-network:
+    name: icestream-network
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  minio-data:
+  flink-checkpoints:
+
+services:
+  # ------------------------------------------------------------------
+  # PostgreSQL — primary relational store (app metadata, and later the
+  # Iceberg JDBC catalog).
+  # ------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: icestream-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-icestream}
+      POSTGRES_USER: ${POSTGRES_USER:-icestream}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-icestream_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-icestream} -d ${POSTGRES_DB:-icestream}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - icestream-network
+
+  # ------------------------------------------------------------------
+  # Redis — cache / future WebSocket pub-sub backplane.
+  # ------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: icestream-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - icestream-network
+
+  # ------------------------------------------------------------------
+  # Kafka — KRaft mode (no ZooKeeper), single-node broker/controller.
+  # ------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.7.1
+    container_name: icestream-kafka
+    restart: unless-stopped
+    ports:
+      - "29092:29092"   # host access
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093,HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: "icestream-kraft-cluster-1"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
+    networks:
+      - icestream-network
+
+  # One-shot idempotent topic creation. Runs after Kafka is healthy and exits.
+  kafka-init:
+    image: apache/kafka:3.7.1
+    container_name: icestream-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes:
+      - ./scripts/create-topics.sh:/scripts/create-topics.sh:ro
+    networks:
+      - icestream-network
+    restart: "no"
+
+  # ------------------------------------------------------------------
+  # MinIO — S3-compatible object storage for the future Iceberg lakehouse.
+  # ------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2024-08-29T01-40-52Z
+    container_name: icestream-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-icestream_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-icestream_minio_secret}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - icestream-network
+
+  # One-shot bucket creation (idempotent — `mc mb --ignore-existing`).
+  minio-init:
+    image: minio/mc:RELEASE.2024-08-29T01-42-28Z
+    container_name: icestream-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/create-bucket.sh"]
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-icestream_minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-icestream_minio_secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-icestream-warehouse}
+    volumes:
+      - ./scripts/create-bucket.sh:/scripts/create-bucket.sh:ro
+    networks:
+      - icestream-network
+    restart: "no"
+
+  # ------------------------------------------------------------------
+  # Flink — stream processing cluster (JobManager + TaskManager).
+  # ------------------------------------------------------------------
+  flink-jobmanager:
+    image: flink:1.19-scala_2.12-java17
+    container_name: icestream-flink-jobmanager
+    restart: unless-stopped
+    command: jobmanager
+    ports:
+      - "8081:8081"   # Flink Web UI
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - ./flink/jobs:/opt/flink/usrlib/jobs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/overview || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - icestream-network
+
+  flink-taskmanager:
+    image: flink:1.19-scala_2.12-java17
+    container_name: icestream-flink-taskmanager
+    restart: unless-stopped
+    command: taskmanager
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - ./flink/jobs:/opt/flink/usrlib/jobs
+    networks:
+      - icestream-network
+
+  # ------------------------------------------------------------------
+  # Backend — FastAPI application.
+  # ------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: icestream-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - icestream-network
+
+  # ------------------------------------------------------------------
+  # Frontend — React + Vite dev server.
+  # ------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: icestream-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    networks:
+      - icestream-network
