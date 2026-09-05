@@ -1,0 +1,16 @@
+customer_id,customer_unique_id,customer_zip_code_prefix,customer_city,customer_state
+cust_0001,uniq_a001,01310,sao paulo,SP
+cust_0002,uniq_a002,20040,rio de janeiro,RJ
+cust_0003,uniq_a003,30130,belo horizonte,MG
+cust_0004,uniq_a004,80010,curitiba,PR
+cust_0005,uniq_a005,90010,porto alegre,RS
+cust_0006,uniq_a006,40020,salvador,BA
+cust_0007,uniq_a007,60010,fortaleza,CE
+cust_0008,uniq_a008,70040,brasilia,DF
+cust_0009,uniq_a009,50030,recife,PE
+cust_0010,uniq_a010,13010,campinas,SP
+cust_0011,uniq_a011,04538,sao paulo,SP
+cust_0012,uniq_a012,22250,rio de janeiro,RJ
+cust_0013,uniq_a013,88010,florianopolis,SC
+cust_0014,uniq_a014,74010,goiania,GO
+cust_0015,uniq_a015,66010,belem,PA

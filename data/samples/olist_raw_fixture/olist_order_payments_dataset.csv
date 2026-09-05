@@ -1,0 +1,17 @@
+order_id,payment_sequential,payment_type,payment_installments,payment_value
+ord_0001,1,credit_card,3,210.00
+ord_0002,1,boleto,1,152.30
+ord_0003,1,credit_card,5,289.40
+ord_0004,1,credit_card,1,54.90
+ord_0005,1,debit_card,1,103.90
+ord_0006,1,boleto,1,85.00
+ord_0007,1,voucher,1,12.20
+ord_0007,2,credit_card,4,400.00
+ord_0008,1,credit_card,6,274.90
+ord_0009,1,voucher,1,27.90
+ord_0010,1,credit_card,8,400.50
+ord_0011,1,credit_card,2,70.90
+ord_0012,1,boleto,1,219.00
+ord_0013,1,credit_card,3,108.00
+ord_0014,1,not_defined,1,87.00
+ord_0015,1,credit_card,4,271.90

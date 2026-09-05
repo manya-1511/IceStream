@@ -1,0 +1,7 @@
+# Requirements for the etl/ data-preparation pipeline (Day 2).
+# Kept separate from backend/requirements.txt so the FastAPI service image
+# does not need pandas/pyarrow.
+pandas==2.2.2
+pyarrow==17.0.0
+pydantic==2.9.2
+pytest==8.3.3

@@ -1,0 +1,11 @@
+product_id,product_category_name,product_name_lenght,product_description_lenght,product_photos_qty,product_weight_g,product_length_cm,product_height_cm,product_width_cm
+prod_0001,beleza_saude,42,320,2,500,20,10,15
+prod_0002,informatica_acessorios,55,610,4,900,35,8,25
+prod_0003,papelaria,30,180,1,200,25,5,18
+prod_0004,moveis_decoracao,60,750,5,18000,120,60,80
+prod_0005,esporte_lazer,48,410,3,1200,40,20,30
+prod_0006,relogios_presentes,38,290,2,300,15,8,12
+prod_0007,eletronicos,52,880,6,2500,45,25,35
+prod_0008,brinquedos,35,250,2,600,30,15,20
+prod_0009,moveis_decoracao,58,700,4,22000,140,70,90
+prod_0010,papelaria,28,150,1,150,20,4,15

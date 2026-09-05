@@ -18,11 +18,20 @@ dist/
 build/
 .vite/
 
-# Data (keep structure, ignore contents)
+# Data (keep structure and docs, ignore actual downloaded/generated content)
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
+!data/raw/README.md
+!data/raw/olist/
+data/raw/olist/*
+!data/raw/olist/.gitkeep
 !data/processed/.gitkeep
+!data/processed/events/
+data/processed/events/*
+!data/processed/events/.gitkeep
+# data/samples/ is intentionally NOT ignored — small, hand-authored
+# fixtures and sample outputs are committed for tests and documentation.
 
 # Logs
 logs/
@@ -40,4 +49,3 @@ Thumbs.db
 
 # Docker
 *.pid
-Makefile

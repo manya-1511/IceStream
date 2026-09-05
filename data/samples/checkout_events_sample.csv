@@ -1,0 +1,18 @@
+transaction_id,order_id,customer_id,timestamp,product_id,quantity,unit_price,subtotal,tax_amount,discount,shipping_amount,total_amount,currency,payment_method,country,device_type,order_status,customer_state,customer_city,product_category,seller_id
+65c814f9-9c57-5a91-a106-1a7808a62504,ord_0001,cust_0001,2017-01-05 10:15:23,prod_0001,2,89.9,179.8,,,30.2,210.0,BRL,credit_card,BR,,delivered,SP,sao paulo,health_beauty,sell_0001
+5a57bedc-c479-5cf3-8473-091aa5103bde,ord_0002,cust_0002,2017-01-12 09:02:11,prod_0002,1,129.9,129.9,,,22.4,152.3,BRL,boleto,BR,,delivered,RJ,rio de janeiro,computers_accessories,sell_0002
+54d8dbd6-4867-51de-903d-285370f45803,ord_0003,cust_0003,2017-02-03 18:45:02,prod_0003,1,59.9,59.9,,,12.0,71.9,BRL,credit_card,BR,,delivered,MG,belo horizonte,stationery,sell_0001
+aa7f5d84-5b90-5cd1-8494-68fb394364ce,ord_0003,cust_0003,2017-02-03 18:45:02,prod_0004,1,199.0,199.0,,,18.5,217.5,BRL,credit_card,BR,,delivered,MG,belo horizonte,furniture_decor,sell_0003
+961d293e-c9a8-533e-9d34-4ac465f1f3c4,ord_0004,cust_0004,2017-02-20 12:33:45,prod_0005,1,45.0,45.0,,,9.9,54.9,BRL,credit_card,BR,,shipped,PR,curitiba,sports_leisure,sell_0002
+bd556093-dae7-5609-b5cd-e7f7be8315df,ord_0005,cust_0005,2017-03-01 08:12:09,prod_0001,1,89.9,89.9,,,14.0,103.9,BRL,debit_card,BR,,delivered,RS,porto alegre,health_beauty,sell_0001
+8c608e38-2ed6-58f0-914d-f5c8d764549c,ord_0006,cust_0006,2017-03-10 21:05:33,prod_0006,1,75.0,75.0,,,10.0,85.0,BRL,boleto,BR,,canceled,BA,salvador,relogios_presentes,sell_0004
+1169b38f-ff7c-54a1-b3e0-382d9da9cedf,ord_0007,cust_0007,2017-03-22 15:40:00,prod_0002,3,129.9,389.7,,,22.5,412.2,BRL,credit_card,BR,,delivered,CE,fortaleza,computers_accessories,sell_0002
+8d0d6f82-b3a9-5d64-bec5-70ed96d604ba,ord_0008,cust_0008,2017-04-02 07:55:19,prod_0007,1,249.9,249.9,,,25.0,274.9,BRL,credit_card,BR,,delivered,DF,brasilia,electronics,sell_0005
+186d30a3-c052-5f74-a5f9-26af1fd9463e,ord_0009,cust_0009,2017-04-15 11:23:47,prod_0008,1,19.9,19.9,,,8.0,27.9,BRL,voucher,BR,,invoiced,PE,recife,toys,sell_0003
+a615371c-28c3-5a85-9c07-9fc02b4dc1cd,ord_0010,cust_0010,2017-05-01 19:10:02,prod_0009,1,349.0,349.0,,,30.0,379.0,BRL,credit_card,BR,,delivered,SP,campinas,furniture_decor,sell_0004
+19230a31-f4f0-5625-8e70-81832780628e,ord_0010,cust_0010,2017-05-01 19:10:02,prod_0010,1,15.5,15.5,,,6.0,21.5,BRL,credit_card,BR,,delivered,SP,campinas,stationery,sell_0005
+39095c8f-8a29-55d5-9bac-3b0e6a815934,ord_0011,cust_0011,2017-05-18 13:02:55,prod_0003,1,59.9,59.9,,,11.0,70.9,BRL,credit_card,BR,,delivered,SP,sao paulo,stationery,sell_0001
+08f7245c-509a-5c1f-960e-87592f9e6357,ord_0012,cust_0012,2017-06-02 10:45:00,prod_0004,1,199.0,199.0,,,20.0,219.0,BRL,boleto,BR,,delivered,RJ,rio de janeiro,furniture_decor,sell_0003
+9b95c372-f254-5198-8528-cfbcb022c157,ord_0013,cust_0013,2017-06-19 16:20:31,prod_0005,2,45.0,90.0,,,18.0,108.0,BRL,credit_card,BR,,delivered,SC,florianopolis,sports_leisure,sell_0002
+2a0cdb8e-f249-5082-9644-64adb984c6a2,ord_0014,cust_0014,2017-07-04 09:55:12,prod_0006,1,75.0,75.0,,,12.0,87.0,BRL,not_defined,BR,,shipped,GO,goiania,relogios_presentes,sell_0004
+fb9a8db8-6603-560a-93cc-99746bbf21c8,ord_0015,cust_0015,2017-07-21 14:08:44,prod_0007,1,249.9,249.9,,,22.0,271.9,BRL,credit_card,BR,,delivered,PA,belem,electronics,sell_0005
