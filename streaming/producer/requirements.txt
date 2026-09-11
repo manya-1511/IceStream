@@ -1,0 +1,7 @@
+# Requirements for the streaming/producer Kafka producer (Day 3).
+# Kept separate from backend/requirements.txt and etl/requirements.txt so
+# each component only installs what it needs.
+kafka-python==2.0.2
+pydantic==2.9.2
+pydantic-settings==2.5.2
+pytest==8.3.3

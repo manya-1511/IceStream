@@ -1,4 +1,4 @@
-.PHONY: up down build logs restart health clean
+.PHONY: up down build logs restart health clean kafka-topics kafka-consume
 
 up:
 	docker compose up -d
@@ -21,6 +21,13 @@ health:
 
 clean:
 	docker compose down -v --remove-orphans
+
+kafka-topics:
+	bash scripts/kafka/list-topics.sh
+
+# Usage: make kafka-consume TOPIC=checkout-events
+kafka-consume:
+	bash scripts/kafka/consume-topic.sh $(TOPIC) --from-beginning
 
 # ------------------------------------------------------------------
 # Windows (no `make`?) — run the equivalent Docker Compose commands:
