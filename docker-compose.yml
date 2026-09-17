@@ -1,0 +1,29 @@
+# IceStream — Day 1
+#
+# We only containerize PostgreSQL. The FastAPI backend runs directly on your
+# machine (uvicorn) so you can see exactly what's happening while learning —
+# no extra layer of Docker networking to reason about. Later days may add
+# services here, but each one will be added only when it's actually needed.
+
+services:
+  db:
+    image: postgres:16
+    container_name: icestream_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-icestream}
+      POSTGRES_USER: ${DB_USER:-icestream}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-icestream}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - icestream_pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-icestream} -d ${DB_NAME:-icestream}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  icestream_pgdata:
