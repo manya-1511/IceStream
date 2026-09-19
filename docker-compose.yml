@@ -19,6 +19,7 @@ services:
     volumes:
       - icestream_pgdata:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/quality_schema.sql:/docker-entrypoint-initdb.d/02_quality_schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-icestream} -d ${DB_NAME:-icestream}"]
       interval: 5s

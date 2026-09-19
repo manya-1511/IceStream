@@ -1,4 +1,4 @@
--- IceStream — Day 1 schema
+-- IceStream  
 --
 -- Only one table for now: orders. It mirrors the real "Online Retail II"
 -- dataset (see docs/DATASET.md) so the preprocessing script can load
