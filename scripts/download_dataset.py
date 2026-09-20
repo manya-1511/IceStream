@@ -4,6 +4,10 @@ Repository and save it into data/raw/.
 
 Source : https://archive.ics.uci.edu/dataset/502/online+retail+ii
 License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+This script does not invent, sample, or modify any data — it downloads the
+official ZIP file byte-for-byte and extracts it. Cleaning/mapping happens
+later, in scripts/preprocess_data.py, and every change made there is logged.
 """
 
 import io

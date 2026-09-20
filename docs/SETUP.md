@@ -124,7 +124,194 @@ auto-generated FastAPI docs (Swagger UI) with the `/health` endpoint listed.
 pytest tests/ -v
 ```
 
-All 3 tests in `tests/test_health.py` should pass.
+All tests in `tests/test_health.py` (Day 1) and `tests/test_quality.py`
+(Day 2) should pass — 11 total.
+
+## Day 2: streaming + data quality
+
+### 11. Apply the Day 2 schema
+
+```bash
+psql -U icestream -d icestream -h localhost -f database/quality_schema.sql
+```
+
+(If you used `docker compose up -d`, this already ran automatically —
+`docker-compose.yml` mounts `schema.sql`, `quality_schema.sql`, and
+`incidents_schema.sql` as init scripts. This manual step is only needed if
+you set up Postgres yourself, per the no-Docker instructions above, *after*
+Day 1.)
+
+Verify:
+
+```bash
+psql -U icestream -d icestream -h localhost -c "\dt"
+```
+
+You should see `orders`, `valid_orders`, and `quarantine_orders`.
+
+### 12. Run the streaming engine
+
+Start small — this streams real records at ~10/sec and stops after 50, so
+it takes about 5 seconds:
+
+```bash
+python streaming/run_stream.py --rate 10 --limit 50
+```
+
+You should see, per record:
+
+```text
+[STREAM] Record received | invoice=536365 stock=85123A qty=6 price=2.55
+[QUALITY] Passed
+[DATABASE] Stored -> valid_orders
+```
+
+...ending with a metrics summary:
+
+```text
+===== Quality Metrics =====
+Total records   : 50
+Valid records   : 50 (or fewer, if a real anomaly was in this slice)
+Invalid records : 0
+Error rate      : 0.0%
+Quality score   : 100.0%
+============================
+```
+
+Try the other rates named in the spec:
+
+```bash
+python streaming/run_stream.py --rate 50 --limit 500
+python streaming/run_stream.py --rate 100 --limit 1000
+```
+
+To replay the *entire* real dataset (~540k+ rows) at a sustainable rate,
+drop `--limit`: `python streaming/run_stream.py --rate 100` (this will run
+for a while — that's expected, it's over half a million real records).
+
+### 13. Verify records actually entered PostgreSQL
+
+```bash
+psql -U icestream -d icestream -h localhost -c "SELECT COUNT(*) FROM valid_orders;"
+psql -U icestream -d icestream -h localhost -c "SELECT COUNT(*) FROM quarantine_orders;"
+psql -U icestream -d icestream -h localhost -c "SELECT invoice_no, stock_code, rule_triggered, reason FROM quarantine_orders LIMIT 5;"
+```
+
+The counts should match what `run_stream.py` printed. If you streamed the
+whole dataset, `quarantine_orders` should contain real anomalies —
+including the two documented "bad debt adjustment" rows and any duplicate
+line items encountered (see `docs/QUALITY_RULES.md`).
+
+### 14. Run the Day 2 tests
+
+```bash
+pytest tests/test_quality.py -v
+```
+
+All 9 tests should pass — they cover a valid record, a missing required
+field, an invalid price, an invalid quantity, a real cancellation (which
+must NOT be flagged), a duplicate line item, a check-without-storing edge
+case, a future timestamp, and a zero quantity.
+
+## Day 3: anomaly detection + self-healing
+
+### 15. Apply the Day 3 schema
+
+```bash
+psql -U icestream -d icestream -h localhost -f database/incidents_schema.sql
+```
+
+(Already applied automatically if you used `docker compose up -d` — see
+the note in step 11.)
+
+Verify:
+
+```bash
+psql -U icestream -d icestream -h localhost -c "\dt"
+```
+
+You should now see `orders`, `valid_orders`, `quarantine_orders`, and
+`incidents`.
+
+### 16. Run the controlled incident demonstration
+
+This is the fastest way to see everything from Day 3 working together —
+it streams real records, injects a controlled fault, watches an incident
+get created, and watches the pipeline recover, all in about 5 seconds:
+
+```bash
+python scripts/demo_incident.py
+```
+
+Expect output like:
+
+```text
+[DEMO] Phase 1: 60 real records, streamed normally
+[DEMO] Phase 2: 60 real records, 24 with unit_price forced to NULL
+[DEMO] Phase 3: 90 real records, streamed normally (recovery should happen here)
+...
+[WINDOW] 140 records | 24 invalid | error_rate=17.14% | quality_score=82.86% | rate=46.49/s
+[CIRCUIT] HEALTHY -> QUARANTINED
+[INCIDENT] #1 opened | type=ERROR_RATE severity=MEDIUM | error_rate 17.14% exceeded threshold 5.0%...
+...
+[WINDOW] 70 records | 0 invalid | error_rate=0.0% | quality_score=100.0% | rate=45.51/s
+[CIRCUIT] QUARANTINED -> RECOVERING
+[RECOVERY] Attempting recovery: re-reading affected records from the source dataset...
+[RECOVERY] attempted=70 recovered=70 still_failing=0 success=True
+[CIRCUIT] RECOVERING -> HEALTHY
+[INCIDENT] #1 RESOLVED
+
+===== DEMO SUMMARY =====
+...
+[DEMO] SUCCESS: an incident was detected, the circuit opened, and the pipeline recovered to HEALTHY.
+```
+
+Then verify the incident directly in Postgres:
+
+```bash
+psql -U icestream -d icestream -h localhost -c "SELECT incident_id, type, severity, status, error_rate, started_at, resolved_at FROM incidents;"
+psql -U icestream -d icestream -h localhost -c "SELECT rule_triggered, COUNT(*) FROM quarantine_orders GROUP BY rule_triggered;"
+```
+
+You should see one `RESOLVED` incident, and `quarantine_orders` containing
+only the genuinely-corrupted rows (`rule_unit_price_required`) — no
+`CIRCUIT_OPEN` rows should remain, since recovery moved all of those into
+`valid_orders`.
+
+The demo is deterministic and safe to re-run — it truncates
+`valid_orders`, `quarantine_orders`, and `incidents` at the start of every
+run, and never modifies `data/processed/orders_clean.csv`.
+
+### 17. Run the normal monitored stream (no injected faults)
+
+```bash
+python streaming/run_monitored_stream.py --rate 10 --window-seconds 10
+```
+
+Against unmodified real data, this should stay `HEALTHY` the whole time —
+confirms the anomaly detectors don't produce false positives on clean data.
+
+### 18. Run the Day 3 tests
+
+```bash
+pytest tests/test_window.py tests/test_anomaly.py tests/test_circuit_breaker.py -v
+```
+
+31 tests should pass, covering: window metric calculation; both anomaly
+detectors (including severity scaling and "not enough history yet"); and
+every circuit breaker transition (`HEALTHY -> DEGRADED`,
+`DEGRADED -> HEALTHY`, `HEALTHY/DEGRADED -> QUARANTINED` for both an
+error-rate and a volume anomaly, `QUARANTINED -> RECOVERING`,
+`RECOVERING -> HEALTHY`, and `RECOVERING -> QUARANTINED` on a failed
+recovery attempt).
+
+Run the complete suite (Day 1 + 2 + 3):
+
+```bash
+pytest tests/ -v
+```
+
+35 tests total should pass.
 
 ## Troubleshooting
 

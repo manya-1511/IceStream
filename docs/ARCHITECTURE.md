@@ -24,16 +24,28 @@ scripts/preprocess_data.py         cleans + maps into our schema
 data/processed/orders_clean.csv
           |
           v
-Python Streaming Engine            (Day 2+) replays rows in timestamp order,
-          |                        at a configurable speed, one "order event"
-          |                        at a time
+Python Streaming Engine            streaming/run_monitored_stream.py replays
+          |                        rows in invoice_date order, at a
+          |                        configurable --rate (records/sec)
           v
-Data Quality Engine                (Day 2+) checks each event against rules
-          |                        (missing fields, price anomalies, schema
-          |                        drift, duplicate invoices, etc.)
+Data Quality Engine                quality/engine.py checks each record
+          |                        against completeness, validity, and
+          |                        uniqueness rules (see docs/QUALITY_RULES.md)
           v
-PostgreSQL                         orders table (Day 1) + quality tables (later)
-          |
+Anomaly Detection                  monitoring/window.py groups records into
+          |                        time windows; monitoring/anomaly.py checks
+          |                        each window for an error-rate or volume
+          |                        anomaly (see docs/ANOMALY_DETECTION.md)
+          v
+Normal Database  OR  Quarantine    valid_orders / quarantine_orders, gated by
+          |                        monitoring/circuit_breaker.py's state
+          v
+Recovery                           on a detected anomaly, monitoring/recovery.py
+          |                        re-reads affected records from the real
+          |                        dataset and re-validates them
+          v
+PostgreSQL                         orders (Day 1) + valid_orders /
+          |                        quarantine_orders (Day 2) + incidents (Day 3)
           v
 FastAPI                            REST endpoints to query orders/quality state
           |
@@ -41,7 +53,7 @@ FastAPI                            REST endpoints to query orders/quality state
 WebSocket                          pushes new events + quality alerts live
           |
           v
-React Dashboard                    (Day 2+) shows the stream and quality metrics
+React Dashboard                    (Day 4+) shows the stream and quality metrics
 ```
 
 ## Why this stack, and why not Kafka/Flink/Spark/Iceberg/Kubernetes
@@ -73,8 +85,9 @@ icestream/
 ├── data/
 │   ├── raw/       Original downloaded dataset (not committed to git)
 │   └── processed/ Cleaned CSV + preprocessing logs (not committed to git)
-├── streaming/     Streaming replay engine (Day 2+)
-├── quality/       Data quality rule engine (Day 2+)
+├── streaming/     Streaming replay engine (Day 2) + monitored variant (Day 3)
+├── quality/       Data quality rule engine (Day 2)
+├── monitoring/    Anomaly detection, circuit breaker, incidents, recovery (Day 3)
 ├── database/      SQL schema
 ├── tests/         Automated tests
 ├── scripts/       One-off/operational scripts (download, preprocess, load)
@@ -86,17 +99,25 @@ icestream/
 
 ## Day-by-day plan (high level)
 
-- **Day 1** (this doc set): real dataset chosen and downloaded, repo
-  scaffolded, Postgres schema + connection, preprocessing script, `/health`.
-- **Day 2**: streaming replay engine — read `orders_clean.csv` in
-  `invoice_date` order and emit rows at a configurable speed.
-- **Day 3**: data quality engine — rule-based checks run against each
-  streamed event (nulls, negative prices, quantity outliers, duplicate
-  invoices, schema drift, spikes/drops in order volume).
+- **Day 1**: real dataset chosen and downloaded, repo scaffolded, Postgres
+  schema + connection, preprocessing script, `/health`.
+- **Day 2**: streaming replay engine (`streaming/`) reads `orders_clean.csv`
+  in `invoice_date` order and emits records at a configurable `--rate`; each
+  one passes through `receive -> validate -> quality check -> store`
+  (`quality/`) and lands in `valid_orders` or `quarantine_orders`. See
+  [`docs/QUALITY_RULES.md`](QUALITY_RULES.md).
+- **Day 3** (done — see [`docs/ANOMALY_DETECTION.md`](ANOMALY_DETECTION.md)):
+  records are grouped into time windows (`monitoring/window.py`); each
+  window is checked for an error-rate or volume anomaly
+  (`monitoring/anomaly.py`); a detected anomaly opens a circuit breaker
+  (`monitoring/circuit_breaker.py`) and creates a row in `incidents`; while
+  open, records are held in quarantine instead of being trusted; an
+  automatic recovery pass (`monitoring/recovery.py`) re-reads and
+  re-validates the held records from the real dataset, closing the circuit
+  once they check out clean.
 - **Day 4**: FastAPI REST endpoints + WebSocket channel to push
-  events/alerts live.
+  events/alerts/incidents live.
 - **Day 5**: React dashboard consuming the WebSocket + REST API.
-- **Day 6+**: automated reactions to detected problems (e.g. pausing
-  ingestion, flagging orders, alerting), plus tests and polish.
+- **Day 6+**: persisted quality metrics history, tests and polish.
 
 This file will be updated as each day's components are added.

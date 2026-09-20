@@ -92,6 +92,47 @@ def truncate_pipeline_tables(engine: Engine) -> None:
         conn.execute(text("TRUNCATE TABLE quarantine_orders RESTART IDENTITY"))
 
 
+# --- Day 3 additions: circuit-breaker-aware quarantine handling ---------
+#
+# When the circuit breaker (monitoring/circuit_breaker.py) is open, records
+# that individually PASS the quality engine are still held in
+# quarantine_orders, tagged with rule_triggered='CIRCUIT_OPEN' rather than
+# a real rule name, so recovery (monitoring/recovery.py) knows exactly
+# which rows to re-check and which are genuinely-failing (left alone).
+
+CIRCUIT_OPEN_RULE = "CIRCUIT_OPEN"
+
+
+def get_circuit_open_records(engine: Engine):
+    """
+    Rows currently held in quarantine ONLY because the circuit was open
+    (not because they individually failed a quality rule). These are the
+    "affected records" recovery re-checks.
+    """
+    query = text(
+        "SELECT id, invoice_no, stock_code, invoice_date "
+        "FROM quarantine_orders WHERE rule_triggered = :rule "
+        "ORDER BY id"
+    )
+    with engine.connect() as conn:
+        return conn.execute(query, {"rule": CIRCUIT_OPEN_RULE}).mappings().all()
+
+
+def delete_quarantine_row(engine: Engine, row_id: int) -> None:
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM quarantine_orders WHERE id = :id"), {"id": row_id})
+
+
+def update_quarantine_reason(engine: Engine, row_id: int, rule: str, reason: str) -> None:
+    """Used when a re-checked CIRCUIT_OPEN row turns out to genuinely fail on retry."""
+    query = text(
+        "UPDATE quarantine_orders SET rule_triggered = :rule, reason = :reason "
+        "WHERE id = :id"
+    )
+    with engine.begin() as conn:
+        conn.execute(query, {"rule": rule, "reason": reason, "id": row_id})
+
+
 def _json_safe(record: dict) -> dict:
     """Make a record JSON-serializable (datetimes -> ISO strings)."""
     safe = {}

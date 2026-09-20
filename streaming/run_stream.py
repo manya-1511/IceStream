@@ -124,6 +124,7 @@ def main() -> None:
                     if not args.quiet:
                         print("[QUALITY] Passed")
                     streaming_db.store_valid(engine, record)
+                    quality_engine.mark_seen(record)
                     if not args.quiet:
                         print("[DATABASE] Stored -> valid_orders")
                 else:
