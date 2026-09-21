@@ -313,6 +313,90 @@ pytest tests/ -v
 
 35 tests total should pass.
 
+## Day 4: dashboard
+
+### 19. Start the backend
+
+```bash
+cd backend
+uvicorn main:app --reload --port 8000
+```
+
+Verify the new endpoints:
+
+```bash
+curl http://localhost:8000/api/metrics/summary
+curl "http://localhost:8000/api/metrics/timeseries?window_minutes=5&bucket_seconds=10"
+curl http://localhost:8000/api/incidents
+```
+
+Each should return real JSON computed from whatever is currently in
+`valid_orders`/`quarantine_orders`/`incidents` — if you've run
+`scripts/demo_incident.py`, you should see `total_processed` reflect that,
+and `/api/incidents` should show the resolved incident from that run.
+
+Run the Day 4 backend tests (these touch the real database, unlike
+`tests/test_health.py`):
+
+```bash
+pytest tests/test_dashboard_api.py -v
+```
+
+11 tests should pass. Full suite is now 46 tests:
+
+```bash
+pytest tests/ -v
+```
+
+### 20. Start the frontend
+
+In a new terminal, with the backend still running:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. You should see:
+- Six metric cards (Events/sec, Total Processed, Quality Score, Error
+  Rate, Quarantined, Active Incidents) showing real numbers, not zeros or
+  placeholders (unless the database is genuinely empty)
+- A live pipeline diagram (React Flow) — nodes colored according to the
+  current pipeline status
+- Two real-time charts (Recharts) — Event Throughput and Data Quality
+- A "Recent Incidents" table — empty state if you haven't run the Day 3
+  demo yet, or showing the resolved incident if you have
+
+The header's "live" / "reconnecting…" indicator confirms the WebSocket
+connection; it should read "live" within a couple of seconds.
+
+### 21. Watch it live
+
+With both servers running and the dashboard open in a browser, run the
+Day 3 demonstration again in a third terminal:
+
+```bash
+python scripts/demo_incident.py
+```
+
+Watch the dashboard update in real time: the metric cards change, the
+pipeline diagram's QUALITY and POSTGRESQL nodes turn from green to red as
+the injected fault trips the error-rate threshold, the QUARANTINE node
+lights up, and everything returns to green as recovery completes — all
+within the ~5 seconds the demo takes to run.
+
+### 22. Run the frontend's own tests
+
+```bash
+cd frontend
+npm run test    # component smoke test (Vitest + Testing Library + jsdom)
+npm run build   # type-checks with tsc -b, then builds for production
+npm run lint    # oxlint
+```
+
+All three should complete with no errors.
+
 ## Troubleshooting
 
 - **`psycopg2` fails to install**: make sure you're using
@@ -323,3 +407,12 @@ pytest tests/ -v
   re-run `docker compose up -d`.
 - **`ModuleNotFoundError: No module named 'config'`**: run `uvicorn` from
   inside the `backend/` directory (step 8), not the project root.
+- **Dashboard shows "reconnecting…" and no data**: confirm the backend is
+  running on port 8000 (step 19) and that nothing else is using that port.
+  If the API is on a different host/port, copy `frontend/.env.example` to
+  `frontend/.env` and set `VITE_API_BASE_URL` accordingly, then restart
+  `npm run dev`.
+- **Charts are empty / metric cards show `—`**: this is correct on a fresh
+  database with no data yet — run `python scripts/demo_incident.py` or
+  `python streaming/run_monitored_stream.py --rate 10` to generate real
+  activity, then refresh.

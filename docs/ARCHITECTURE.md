@@ -47,13 +47,15 @@ Recovery                           on a detected anomaly, monitoring/recovery.py
 PostgreSQL                         orders (Day 1) + valid_orders /
           |                        quarantine_orders (Day 2) + incidents (Day 3)
           v
-FastAPI                            REST endpoints to query orders/quality state
-          |
+FastAPI                            backend/routers/ — REST endpoints for
+          |                        metrics/incidents (Day 4)
           v
-WebSocket                          pushes new events + quality alerts live
-          |
+WebSocket                          backend/routers/ws.py — pushes a live
+          |                        metrics tick every 2s (Day 4)
           v
-React Dashboard                    (Day 4+) shows the stream and quality metrics
+React Dashboard                    frontend/ — metric cards, live pipeline
+                                    diagram, real-time charts, incident panel
+                                    (Day 4, see docs/DASHBOARD.md)
 ```
 
 ## Why this stack, and why not Kafka/Flink/Spark/Iceberg/Kubernetes
@@ -80,8 +82,8 @@ infrastructure complexity — the opposite of the learning goal.
 
 ```text
 icestream/
-├── backend/       FastAPI app (Day 1: /health; later: REST + WebSocket API)
-├── frontend/       React dashboard (Day 2+)
+├── backend/       FastAPI app: /health (Day 1) + dashboard API (Day 4)
+├── frontend/      React dashboard (Day 4)
 ├── data/
 │   ├── raw/       Original downloaded dataset (not committed to git)
 │   └── processed/ Cleaned CSV + preprocessing logs (not committed to git)
@@ -115,9 +117,13 @@ icestream/
   automatic recovery pass (`monitoring/recovery.py`) re-reads and
   re-validates the held records from the real dataset, closing the circuit
   once they check out clean.
-- **Day 4**: FastAPI REST endpoints + WebSocket channel to push
-  events/alerts/incidents live.
-- **Day 5**: React dashboard consuming the WebSocket + REST API.
-- **Day 6+**: persisted quality metrics history, tests and polish.
+- **Day 4** (done — see [`docs/DASHBOARD.md`](DASHBOARD.md)): a read-only
+  dashboard API (`backend/routers/`) exposes real metrics, timeseries, and
+  incidents computed on demand from Postgres, plus a WebSocket that pushes
+  a live tick every 2s; a React + TypeScript + Tailwind + Recharts +
+  React Flow dashboard (`frontend/`) consumes it — metric cards, a live
+  pipeline topology diagram, two real-time charts, and an incident panel,
+  all backed by real calculated values, no hardcoded numbers.
+- **Day 5+**: persisted quality metrics history, advanced monitoring/alerting, polish.
 
 This file will be updated as each day's components are added.
