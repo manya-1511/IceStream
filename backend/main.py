@@ -1,11 +1,12 @@
 """
-IceStream API — Day 1
+IceStream API
 
-Today this app only proves that:
-  1. FastAPI runs.
-  2. It can be imported/started without a database connection (the /health
-     endpoint does not touch the DB, so you can verify the API works even
-     before Postgres is set up).
+Day 1: proved FastAPI runs, with a DB-free /health check.
+Day 4: adds the read-only dashboard API (backend/routers/) that powers the
+React frontend — metrics, timeseries, incidents, and a live WebSocket feed.
+Every number these endpoints return is computed on demand from the same
+tables the streaming engine (streaming/, monitoring/) writes to; see
+backend/queries.py.
 
 Run with:
     uvicorn main:app --reload --port 8000
@@ -14,13 +15,15 @@ Run with:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from routers import incidents, metrics, ws
+
 app = FastAPI(
     title="IceStream API",
     description="Real-Time E-Commerce Data Quality & Observability Platform",
     version="0.1.0",
 )
 
-# Allow the future React dashboard (different port) to call this API.
+# Allow the React dashboard (different port) to call this API.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -28,6 +31,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(metrics.router)
+app.include_router(incidents.router)
+app.include_router(ws.router)
 
 
 @app.get("/health")
