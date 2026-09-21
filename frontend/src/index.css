@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/*
+  Design tokens for IceStream's dashboard.
+
+  A cool, near-black "ink" palette (not pure black, not warm cream) with a
+  single cyan brand accent used sparingly, plus a separate functional
+  palette for pipeline/incident status that is never reused decoratively
+  elsewhere. Data values use a monospace face (IBM Plex Mono) so digits
+  don't jitter as they update live; UI text uses IBM Plex Sans.
+*/
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --color-ink-950: #0b1120;
+  --color-ink-900: #0f1626;
+  --color-ink-800: #121a2b;
+  --color-ink-700: #1a2438;
+  --color-ink-600: #26314a;
+  --color-ink-500: #3a4763;
+  --color-ink-300: #7c8aa8;
+  --color-ink-100: #cfd7e8;
+  --color-ink-50: #e7ecf6;
+
+  --color-ice: #4fd8e8;
+  --color-ice-dim: #2a7f8c;
+
+  --color-status-healthy: #34d399;
+  --color-status-degraded: #fbbf24;
+  --color-status-incident: #f87171;
+  --color-status-recovering: #818cf8;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-ink-50);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures everywhere numbers update live, so widths don't jump. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
